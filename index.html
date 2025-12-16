@@ -8,6 +8,7 @@
     .sem-btn-danger { background: #e74c3c; color: white; }
     .sem-btn-success { background: #2ecc71; color: white; }
     .sem-btn-warning { background: #f39c12; color: white; }
+    .sem-btn-info { background: #8e44ad; color: white; } /* 전체현황 버튼용 */
     
     .sem-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
     
@@ -28,12 +29,15 @@
     .sem-dept-san { background: #3498db; }
     .sem-dept-gyo { background: #e74c3c; }
     .sem-dept-hae { background: #2ecc71; }
+    
+    /* 상태별 스타일 */
     .sem-status-wait { opacity: 0.7; border: 1px dashed #333; }
+    .sem-status-reject { background: #95a5a6 !important; text-decoration: line-through; opacity: 0.6; } /* 거절 스타일 */
     
     .sem-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99999 !important; justify-content: center; align-items: center; }
     .sem-modal.active { display: flex; }
     
-    .sem-modal-content { background: #fff; padding: 25px; border-radius: 8px; width: 90%; max-width: 500px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); position: relative; z-index: 100000; }
+    .sem-modal-content { background: #fff; padding: 25px; border-radius: 8px; width: 90%; max-width: 600px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); position: relative; z-index: 100000; max-height: 80vh; overflow-y: auto; }
     
     .sem-input { width: 100%; padding: 8px; margin: 5px 0 15px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
     .sem-loading { position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(0,0,0,0.7); color:white; padding:20px; border-radius:10px; display:none; z-index: 99999; }
@@ -44,6 +48,17 @@
     /* 관리자 시설 관리 스타일 */
     .fac-item { display: flex; gap: 5px; margin-bottom: 5px; padding: 5px; background: #f1f1f1; border-radius: 4px; align-items: center; }
     .fac-input { padding: 5px; border: 1px solid #ddd; border-radius: 3px; flex-grow: 1; }
+
+    /* 관리자 탭 스타일 */
+    .admin-tab-group { display: flex; border-bottom: 2px solid #ddd; margin-bottom: 15px; }
+    .admin-tab { padding: 10px 20px; cursor: pointer; border: none; background: none; font-weight: bold; color: #7f8c8d; }
+    .admin-tab.active { border-bottom: 3px solid #3498db; color: #3498db; }
+    .admin-tab:hover { background: #f1f1f1; }
+
+    /* 전체보기 테이블 스타일 */
+    .sem-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .sem-table th, .sem-table td { border: 1px solid #ddd; padding: 8px; text-align: center; font-size: 0.9rem; }
+    .sem-table th { background: #f8f9fa; }
 </style>
 
 <div id="error-banner"></div>
@@ -62,11 +77,16 @@
 <div id="loading-spinner" class="sem-loading">데이터 불러오는 중...</div>
 
 <div id="user-view">
-    <div style="text-align: center; margin-bottom: 20px;">
-        <button class="sem-btn sem-btn-secondary" onclick="app.moveMonth(-1)">&lt;</button>
-        <span id="current-month-display" style="font-size: 1.2rem; font-weight: bold; margin: 0 15px;">2025년 12월</span>
-        <button class="sem-btn sem-btn-secondary" onclick="app.moveMonth(1)">&gt;</button>
-        <button class="sem-btn sem-btn-primary" onclick="app.openReservationModal()" style="float: right;">+ 예약 신청</button>
+    <div style="margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+            <button class="sem-btn sem-btn-secondary" onclick="app.moveMonth(-1)">&lt;</button>
+            <span id="current-month-display" style="font-size: 1.2rem; font-weight: bold; margin: 0 15px;"></span>
+            <button class="sem-btn sem-btn-secondary" onclick="app.moveMonth(1)">&gt;</button>
+        </div>
+        <div>
+            <button class="sem-btn sem-btn-info" onclick="app.openAllListModal()">📋 전체 시설 현황</button>
+            <button class="sem-btn sem-btn-primary" onclick="app.openReservationModal()">+ 예약 신청</button>
+        </div>
     </div>
     <div id="calendar-grid" class="sem-calendar"></div>
 </div>
@@ -85,7 +105,12 @@
             </div>
         </div>
 
-        <h4 style="margin: 10px 0;">⏳ 승인 대기 목록</h4>
+        <div class="admin-tab-group">
+            <button class="admin-tab active" onclick="app.setAdminTab('대기')" id="tab-wait">승인 대기</button>
+            <button class="admin-tab" onclick="app.setAdminTab('확정')" id="tab-confirm">확정 내역</button>
+            <button class="admin-tab" onclick="app.setAdminTab('거절')" id="tab-reject">거절 내역</button>
+        </div>
+
         <div id="pending-list"></div>
 
         <hr style="margin: 20px 0;">
@@ -131,6 +156,30 @@
     </div>
 </div>
 
+<div id="all-list-modal" class="sem-modal">
+    <div class="sem-modal-content" style="max-width: 700px;">
+        <h3>📋 전체 시설 예약 현황 (오늘 이후)</h3>
+        <div style="overflow-x: auto;">
+            <table class="sem-table">
+                <thead>
+                    <tr>
+                        <th>날짜</th>
+                        <th>시설명</th>
+                        <th>시간</th>
+                        <th>부서</th>
+                        <th>상태</th>
+                    </tr>
+                </thead>
+                <tbody id="all-res-tbody">
+                    </tbody>
+            </table>
+        </div>
+        <div style="text-align: center; margin-top: 20px;">
+            <button class="sem-btn sem-btn-secondary" onclick="app.closeModal('all-list-modal')">닫기</button>
+        </div>
+    </div>
+</div>
+
 <div id="auth-modal" class="sem-modal">
     <div class="sem-modal-content" style="text-align: center;">
         <h3>관리자 로그인</h3>
@@ -159,39 +208,37 @@
 // 🚨 여기에 본인의 Pantry ID를 꼭 넣으세요! 
 // ==========================================
 const PANTRY_ID = "c3e24190-8ce2-4561-9ec5-6cdfcfbe6c50"; 
-const BASKET_NAME = "reservations_final_v3"; // 버전 v3로 변경 (시설관리 기능 호환을 위해)
+const BASKET_NAME = "reservations_final_v3"; 
 const API_URL = `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/${BASKET_NAME}`;
 
-// 기본 시설 목록 (데이터 없을 때 사용)
 const DEFAULT_FACILITIES = ["제1세미나실", "제2세미나실", "대강당", "회의실 A"];
 
 class FinalSeminarSystem {
     constructor() {
         this.date = new Date();
         this.reservations = [];
-        this.facilities = [...DEFAULT_FACILITIES]; // 시설 목록을 상태로 관리
+        this.facilities = [...DEFAULT_FACILITIES]; 
         this.isAdmin = false;
         this.currentFacility = this.facilities[0];
         this.adminPassword = '1234'; 
         
+        this.currentAdminTab = '대기'; // 관리자 모드 현재 탭 (대기, 확정, 거절)
+
         this.initTimeOptions();
         
         if (PANTRY_ID === "여기에_PANTRY_ID_입력") {
             this.showError("⚠️ Pantry ID가 설정되지 않았습니다.");
-            this.renderCalendar(); // 에러 상태라도 일단 렌더링
+            this.renderCalendar();
         } else {
             this.loadData();
         }
     }
 
-    // 시설 선택 드롭다운 렌더링 (사용자용 & 관리자용)
     initFacilitySelectors() {
-        // 1. 사용자 화면 상단 셀렉터
         const userSelector = document.getElementById('facility-selector');
         userSelector.innerHTML = this.facilities.map(f => `<option value="${f}">${f}</option>`).join('');
         userSelector.value = this.currentFacility;
 
-        // 2. 관리자 화면 필터 셀렉터 (전체보기 추가)
         const adminSelector = document.getElementById('admin-facility-filter');
         let adminOptions = `<option value="ALL">📋 전체 시설 보기</option>`;
         adminOptions += this.facilities.map(f => `<option value="${f}">${f}</option>`).join('');
@@ -201,7 +248,6 @@ class FinalSeminarSystem {
     changeFacility() {
         this.currentFacility = document.getElementById('facility-selector').value;
         this.renderCalendar();
-        // 관리자 모드일 때는 굳이 리스트를 다시 그리지 않음 (관리자는 별도 필터 사용)
     }
 
     initTimeOptions() {
@@ -227,24 +273,22 @@ class FinalSeminarSystem {
             this.reservations = data.reservations || [];
             this.adminPassword = data.adminPassword || '1234';
             
-            // 저장된 시설 목록이 있으면 불러오고, 없으면 기본값 사용
             if (data.facilities && Array.isArray(data.facilities) && data.facilities.length > 0) {
                 this.facilities = data.facilities;
             } else {
                 this.facilities = [...DEFAULT_FACILITIES];
             }
 
-            // 현재 시설 유효성 검사 (삭제된 시설을 보고 있을 수 있으므로)
             if (!this.facilities.includes(this.currentFacility)) {
                 this.currentFacility = this.facilities[0];
             }
 
         } catch (e) {
-            console.log("데이터 없음 또는 초기화:", e);
+            console.log("초기화:", e);
         }
         document.getElementById('loading-spinner').style.display = 'none';
         
-        this.initFacilitySelectors(); // 데이터 로드 후 셀렉터 갱신
+        this.initFacilitySelectors(); 
         this.renderCalendar();
         if(this.isAdmin) {
             this.renderAdminList();
@@ -262,16 +306,15 @@ class FinalSeminarSystem {
                 body: JSON.stringify({ 
                     reservations: this.reservations,
                     adminPassword: this.adminPassword,
-                    facilities: this.facilities // 시설 목록도 함께 저장
+                    facilities: this.facilities 
                 })
             });
-            // alert("✅ 저장되었습니다!"); // 너무 빈번하면 귀찮으므로 주석 처리 가능
         } catch (e) {
             alert("❌ 저장 실패: " + e.message);
         }
         document.getElementById('loading-spinner').style.display = 'none';
         
-        this.initFacilitySelectors(); // 저장 후 셀렉터 상태 동기화
+        this.initFacilitySelectors(); 
         this.renderCalendar();
         if(this.isAdmin) {
             this.renderAdminList();
@@ -313,18 +356,21 @@ class FinalSeminarSystem {
             
             cell.innerHTML = `<div class="${dateClass}">${i}</div>`;
             
-            // '취소'와 '거절' 상태는 달력에 표시하지 않음
+            // 변경점: '거절' 상태도 보이도록 수정 (status !== '거절' 조건 제거)
             const myReservations = this.reservations.filter(r => 
                 r.date === dateStr && 
                 r.status !== '취소' && 
-                r.status !== '거절' &&
                 r.facility === this.currentFacility
             );
 
             myReservations.forEach(r => {
                 const badge = document.createElement('div');
                 badge.className = `sem-res-bar sem-dept-${r.department === '산학처'?'san':r.department==='교학처'?'gyo':'hae'}`;
+                
+                // 상태별 클래스 추가
                 if(r.status === '대기') badge.classList.add('sem-status-wait');
+                if(r.status === '거절') badge.classList.add('sem-status-reject'); // 거절 스타일 적용
+
                 badge.innerText = `[${r.status}] ${r.startTime} ${r.purpose}`;
                 badge.onclick = (e) => { e.stopPropagation(); this.openReservationModal(r); };
                 cell.appendChild(badge);
@@ -335,6 +381,37 @@ class FinalSeminarSystem {
             };
             grid.appendChild(cell);
         }
+    }
+
+    // 전체 예약 현황 모달 열기
+    openAllListModal() {
+        const tbody = document.getElementById('all-res-tbody');
+        tbody.innerHTML = '';
+        
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        // 날짜순(최신순) 정렬, 취소된 건 제외
+        const sorted = this.reservations
+            .filter(r => r.status !== '취소' && r.date >= todayStr) // 오늘 이후 것만 표시
+            .sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime));
+
+        if(sorted.length === 0) {
+             tbody.innerHTML = '<tr><td colspan="5">예약 내역이 없습니다.</td></tr>';
+        } else {
+            sorted.forEach(r => {
+                const row = document.createElement('tr');
+                if(r.status === '거절') row.style.color = '#aaa';
+                row.innerHTML = `
+                    <td>${r.date}</td>
+                    <td>${r.facility}</td>
+                    <td>${r.startTime}~${r.endTime}</td>
+                    <td>${r.department}</td>
+                    <td>${r.status}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+        document.getElementById('all-list-modal').classList.add('active');
     }
 
     async saveReservation(e) {
@@ -358,7 +435,7 @@ class FinalSeminarSystem {
 
         if (id) {
             const idx = this.reservations.findIndex(r => r.id === id);
-            if (idx >= 0) newData.status = this.reservations[idx].status;
+            if (idx >= 0) newData.status = this.reservations[idx].status; // 기존 상태 유지
             this.reservations[idx] = newData;
         } else {
             this.reservations.push(newData);
@@ -386,7 +463,7 @@ class FinalSeminarSystem {
             document.getElementById('admin-view').style.display = 'block';
             
             this.renderAdminList();
-            this.renderFacilityManager(); // 시설 관리 렌더링
+            this.renderFacilityManager(); 
         } else {
             alert('비밀번호가 틀렸습니다.');
         }
@@ -418,25 +495,39 @@ class FinalSeminarSystem {
         alert("비밀번호가 변경되었습니다. 다음 로그인부터 적용됩니다.");
     }
 
-    // 관리자: 대기 목록 렌더링 (전체보기 기능 추가)
+    // 관리자 탭 변경
+    setAdminTab(tabName) {
+        this.currentAdminTab = tabName;
+        // 탭 UI 활성화 처리
+        document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+        if(tabName === '대기') document.getElementById('tab-wait').classList.add('active');
+        if(tabName === '확정') document.getElementById('tab-confirm').classList.add('active');
+        if(tabName === '거절') document.getElementById('tab-reject').classList.add('active');
+        
+        this.renderAdminList();
+    }
+
+    // 관리자 리스트 렌더링 (탭 + 시설필터 적용)
     renderAdminList() {
         const list = document.getElementById('pending-list');
-        const filterVal = document.getElementById('admin-facility-filter').value;
+        const filterFac = document.getElementById('admin-facility-filter').value;
+        const filterStatus = this.currentAdminTab; // 현재 선택된 탭 (대기/확정/거절)
         
-        // 필터 로직: ALL이면 모든 대기건, 아니면 해당 시설만
-        const pending = this.reservations.filter(r => {
-            const isWait = r.status === '대기';
-            const isTargetFacility = (filterVal === 'ALL') ? true : (r.facility === filterVal);
-            return isWait && isTargetFacility;
+        const filtered = this.reservations.filter(r => {
+            const isStatusMatch = r.status === filterStatus;
+            const isFacMatch = (filterFac === 'ALL') ? true : (r.facility === filterFac);
+            return isStatusMatch && isFacMatch;
         });
+        
+        // 날짜순 정렬
+        filtered.sort((a,b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
 
-        if(pending.length === 0) { 
-            const msg = filterVal === 'ALL' ? '대기 중인 예약이 없습니다.' : `'${filterVal}'에 대기 중인 예약이 없습니다.`;
-            list.innerHTML = `<p style="text-align:center; padding:20px; color:#666;">${msg}</p>`; 
+        if(filtered.length === 0) { 
+            list.innerHTML = `<p style="text-align:center; padding:20px; color:#666;">'${filterStatus}' 상태의 예약이 없습니다.</p>`; 
             return; 
         }
         
-        list.innerHTML = pending.map(r => `
+        list.innerHTML = filtered.map(r => `
             <div style="border:1px solid #ddd; background:white; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;">
                 <div>
                     <span style="font-weight:bold; color:#3498db;">[${r.facility}]</span>
@@ -445,8 +536,9 @@ class FinalSeminarSystem {
                     <strong>${r.department}</strong> - ${r.purpose} (${r.contact})
                 </div>
                 <div>
-                    <button class="sem-btn sem-btn-success" onclick="app.updateStatus('${r.id}', '확정')">승인</button>
-                    <button class="sem-btn sem-btn-danger" onclick="app.updateStatus('${r.id}', '거절')">거부</button>
+                    ${r.status !== '확정' ? `<button class="sem-btn sem-btn-success" onclick="app.updateStatus('${r.id}', '확정')">승인</button>` : ''}
+                    ${r.status !== '거절' ? `<button class="sem-btn sem-btn-danger" onclick="app.updateStatus('${r.id}', '거절')">거부</button>` : ''}
+                    ${r.status !== '대기' ? `<button class="sem-btn sem-btn-secondary" onclick="app.updateStatus('${r.id}', '대기')">대기로</button>` : ''}
                 </div>
             </div>
         `).join('');
@@ -457,11 +549,11 @@ class FinalSeminarSystem {
         if(idx >= 0) {
             this.reservations[idx].status = status;
             await this.saveDataToCloud();
-            this.renderAdminList(); // 리스트 갱신
+            this.renderAdminList(); 
         }
     }
 
-    // ================= 시설 관리 기능 추가 =================
+    // ================= 시설 관리 기능 =================
     renderFacilityManager() {
         const list = document.getElementById('facility-manage-list');
         list.innerHTML = this.facilities.map((fac, index) => `
@@ -490,21 +582,15 @@ class FinalSeminarSystem {
         if(oldName === newName) return;
 
         if(confirm(`'${oldName}'을(를) '${newName}'(으)로 변경하시겠습니까?\n기존 예약 내역의 시설명도 모두 변경됩니다.`)) {
-            // 1. 시설 목록 업데이트
             this.facilities[index] = newName;
-            
-            // 2. 기존 예약들의 facility 이름도 일괄 업데이트
             this.reservations.forEach(r => {
                 if(r.facility === oldName) {
                     r.facility = newName;
                 }
             });
-
-            // 3. 현재 보고있는 시설이라면 currentFacility 업데이트
             if(this.currentFacility === oldName) {
                 this.currentFacility = newName;
             }
-
             await this.saveDataToCloud();
         }
     }
@@ -519,7 +605,6 @@ class FinalSeminarSystem {
             await this.saveDataToCloud();
         }
     }
-    // ======================================================
 
     openReservationModal(r, dateStr) {
         document.getElementById('res-form').reset();
