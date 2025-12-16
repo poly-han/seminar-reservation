@@ -22,7 +22,12 @@
     .sem-modal-content { background: white; padding: 25px; border-radius: 8px; width: 90%; max-width: 500px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
     .sem-input { width: 100%; padding: 8px; margin: 5px 0 15px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
     .sem-loading { position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(0,0,0,0.7); color:white; padding:20px; border-radius:10px; display:none; }
+    
+    /* 오류 메시지 스타일 추가 */
+    #error-banner { background: #e74c3c; color: white; padding: 10px; text-align: center; margin-bottom: 10px; display: none; border-radius: 5px; }
 </style>
+
+<div id="error-banner"></div>
 
 <div class="sem-nav">
     <h2 id="page-title"><i class="fas fa-calendar-alt"></i> 실시간 예약 시스템</h2>
@@ -37,7 +42,7 @@
 <div id="user-view">
     <div style="text-align: center; margin-bottom: 20px;">
         <button class="sem-btn sem-btn-secondary" onclick="app.moveMonth(-1)">&lt;</button>
-        <span id="current-month-display" style="font-size: 1.2rem; font-weight: bold; margin: 0 15px;"></span>
+        <span id="current-month-display" style="font-size: 1.2rem; font-weight: bold; margin: 0 15px;">2025년 12월</span>
         <button class="sem-btn sem-btn-secondary" onclick="app.moveMonth(1)">&gt;</button>
         <button class="sem-btn sem-btn-primary" onclick="app.openReservationModal()" style="float: right;">+ 예약 신청</button>
     </div>
@@ -109,18 +114,218 @@ class CloudSeminarSystem {
         this.reservations = [];
         this.isAdmin = false;
         
-        // 시간 옵션 초기화 (09:00 ~ 22:00, 30분 단위)
+        // 시간 옵션 초기화
         this.initTimeOptions();
 
+        // 🚨 중요: ID가 없어도 일단 달력은 그립니다! (빈 화면 방지)
+        this.renderCalendar();
+
         if (PANTRY_ID === "여기에_PANTRY_ID_입력") {
-            alert("⚠️ 코드에서 PANTRY_ID를 먼저 설정해주세요!");
+            this.showError("⚠️ Pantry ID가 설정되지 않았습니다. 예약이 저장되지 않는 '체험 모드'입니다.");
         } else {
             this.loadData();
         }
     }
 
-    // [신규 기능] 30분 단위 시간 옵션 생성
     initTimeOptions() {
         const startSelect = document.getElementById('res-start');
         const endSelect = document.getElementById('res-end');
         let options = '<option value="">선택</option>';
+        for (let hour = 9; hour < 22; hour++) {
+            const h = String(hour).padStart(2, '0');
+            options += `<option value="${h}:00">${h}:00</option><option value="${h}:30">${h}:30</option>`;
+        }
+        options += `<option value="22:00">22:00</option>`;
+        if(startSelect) startSelect.innerHTML = options;
+        if(endSelect) endSelect.innerHTML = options;
+    }
+
+    async loadData() {
+        document.getElementById('loading-spinner').style.display = 'block';
+        try {
+            const response = await fetch(API_URL);
+            if (!response.ok) throw new Error('신규 저장소');
+            const data = await response.json();
+            this.reservations = data.reservations || [];
+        } catch (e) {
+            console.log("데이터 없음 또는 오류:", e);
+            // 오류가 나도 빈 배열로 유지
+        }
+        document.getElementById('loading-spinner').style.display = 'none';
+        this.renderCalendar(); // 데이터 로드 후 다시 그리기
+        if(this.isAdmin) this.renderAdminList();
+    }
+
+    async saveDataToCloud() {
+        // ID 설정 안 되어있으면 경고만 하고 종료
+        if (PANTRY_ID === "여기에_PANTRY_ID_입력") {
+            alert("Pantry ID를 설정해야 저장이 가능합니다!");
+            return;
+        }
+
+        document.getElementById('loading-spinner').style.display = 'block';
+        try {
+            await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reservations: this.reservations })
+            });
+            alert("✅ 저장 완료!");
+        } catch (e) {
+            alert("❌ 저장 실패: " + e.message);
+        }
+        document.getElementById('loading-spinner').style.display = 'none';
+        this.renderCalendar();
+        if(this.isAdmin) this.renderAdminList();
+    }
+
+    renderCalendar() {
+        const grid = document.getElementById('calendar-grid');
+        if(!grid) return;
+        grid.innerHTML = '';
+        ['일','월','화','수','목','금','토'].forEach(d => grid.innerHTML += `<div class="sem-cal-header">${d}</div>`);
+        
+        const year = this.date.getFullYear();
+        const month = this.date.getMonth();
+        const monthDisplay = document.getElementById('current-month-display');
+        if(monthDisplay) monthDisplay.innerText = `${year}년 ${month + 1}월`;
+
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+
+        for(let i=0; i<firstDay.getDay(); i++) grid.innerHTML += `<div class="sem-cal-cell" style="background:#f9f9f9"></div>`;
+
+        for(let i=1; i<=lastDay.getDate(); i++) {
+            const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+            const cell = document.createElement('div');
+            cell.className = 'sem-cal-cell';
+            cell.innerHTML = `<div style="font-weight:bold; font-size:12px;">${i}</div>`;
+            
+            this.reservations.filter(r => r.date === dateStr && r.status !== '취소').forEach(r => {
+                const badge = document.createElement('div');
+                badge.className = `sem-res-bar sem-dept-${r.department === '산학처'?'san':r.department==='교학처'?'gyo':'hae'}`;
+                if(r.status === '대기') badge.classList.add('sem-status-wait');
+                badge.innerText = `[${r.status}] ${r.startTime} ${r.purpose}`;
+                badge.onclick = (e) => { e.stopPropagation(); this.openReservationModal(r); };
+                cell.appendChild(badge);
+            });
+            
+            cell.onclick = (e) => {
+                if(e.target === cell) this.openReservationModal(null, dateStr);
+            };
+            grid.appendChild(cell);
+        }
+    }
+
+    async saveReservation(e) {
+        e.preventDefault();
+        const start = document.getElementById('res-start').value;
+        const end = document.getElementById('res-end').value;
+        if(start >= end) { alert("종료 시간은 시작 시간보다 늦어야 합니다."); return; }
+
+        const id = document.getElementById('res-id').value;
+        const newData = {
+            id: id || Date.now().toString(),
+            date: document.getElementById('res-date').value,
+            startTime: start,
+            endTime: end,
+            department: document.getElementById('res-dept').value,
+            contact: document.getElementById('res-contact').value,
+            purpose: document.getElementById('res-purpose').value,
+            status: '대기' 
+        };
+
+        if (id) {
+            const idx = this.reservations.findIndex(r => r.id === id);
+            if (idx >= 0) newData.status = this.reservations[idx].status;
+            this.reservations[idx] = newData;
+        } else {
+            this.reservations.push(newData);
+        }
+        
+        this.closeModal('res-modal');
+        await this.saveDataToCloud();
+    }
+
+    async deleteReservation() {
+        if(!confirm('정말 삭제하시겠습니까?')) return;
+        const id = document.getElementById('res-id').value;
+        this.reservations = this.reservations.filter(r => r.id !== id);
+        this.closeModal('res-modal');
+        await this.saveDataToCloud();
+    }
+
+    login() {
+        if(document.getElementById('admin-pw').value === '1234') {
+            this.isAdmin = true;
+            this.closeModal('auth-modal');
+            document.getElementById('user-view').style.display = 'none';
+            document.getElementById('admin-view').style.display = 'block';
+            this.renderAdminList();
+        } else alert('비밀번호 오류');
+    }
+
+    logout() {
+        this.isAdmin = false;
+        document.getElementById('user-view').style.display = 'block';
+        document.getElementById('admin-view').style.display = 'none';
+        this.renderCalendar();
+    }
+
+    renderAdminList() {
+        const list = document.getElementById('pending-list');
+        const pending = this.reservations.filter(r => r.status === '대기');
+        if(pending.length === 0) { list.innerHTML = '<p style="text-align:center; padding:20px;">대기 중인 예약이 없습니다.</p>'; return; }
+        
+        list.innerHTML = pending.map(r => `
+            <div style="border:1px solid #ddd; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;">
+                <div>[${r.department}] ${r.date} ${r.startTime}~${r.endTime} (${r.purpose})</div>
+                <div>
+                    <button class="sem-btn sem-btn-success" onclick="app.updateStatus('${r.id}', '확정')">승인</button>
+                    <button class="sem-btn sem-btn-danger" onclick="app.updateStatus('${r.id}', '취소')">거부</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    async updateStatus(id, status) {
+        const idx = this.reservations.findIndex(r => r.id === id);
+        if(idx >= 0) {
+            this.reservations[idx].status = status;
+            await this.saveDataToCloud();
+        }
+    }
+
+    openReservationModal(r, dateStr) {
+        document.getElementById('res-form').reset();
+        if(r) {
+            document.getElementById('res-id').value = r.id;
+            document.getElementById('res-date').value = r.date;
+            document.getElementById('res-start').value = r.startTime;
+            document.getElementById('res-end').value = r.endTime;
+            document.getElementById('res-dept').value = r.department;
+            document.getElementById('res-contact').value = r.contact;
+            document.getElementById('res-purpose').value = r.purpose;
+            document.getElementById('btn-delete').style.display = 'inline-block';
+        } else {
+            document.getElementById('res-id').value = '';
+            if(dateStr) document.getElementById('res-date').value = dateStr;
+            document.getElementById('btn-delete').style.display = 'none';
+        }
+        document.getElementById('res-modal').classList.add('active');
+    }
+    
+    checkAdminAuth() { document.getElementById('auth-modal').classList.add('active'); }
+    closeModal(id) { document.getElementById(id).classList.remove('active'); }
+    moveMonth(offset) { this.date.setMonth(this.date.getMonth() + offset); this.renderCalendar(); }
+    
+    showError(msg) {
+        const banner = document.getElementById('error-banner');
+        banner.innerText = msg;
+        banner.style.display = 'block';
+    }
+}
+
+const app = new CloudSeminarSystem();
+</script>
+</div>
