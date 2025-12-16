@@ -1,36 +1,60 @@
 <div id="seminar-system-container">
 <style>
-    /* 기존 스타일 유지 */
+    /* 기본 스타일 */
     #seminar-system-container { font-family: 'Noto Sans KR', sans-serif; color: #2c3e50; background: #fff; border: 1px solid #ddd; padding: 20px; max-width: 1200px; margin: 0 auto; }
     .sem-btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; margin: 2px; }
     .sem-btn-primary { background: #3498db; color: white; }
     .sem-btn-secondary { background: #95a5a6; color: white; }
     .sem-btn-danger { background: #e74c3c; color: white; }
     .sem-btn-success { background: #2ecc71; color: white; }
+    .sem-btn-warning { background: #f39c12; color: white; }
+    
     .sem-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-    .sem-calendar { display: grid; grid-template-columns: repeat(7, 1fr); border-top: 1px solid #ddd; border-left: 1px solid #ddd; }
+    
+    /* [수정] 달력 스타일 (z-index 낮춤) */
+    .sem-calendar { display: grid; grid-template-columns: repeat(7, 1fr); border-top: 1px solid #ddd; border-left: 1px solid #ddd; position: relative; z-index: 1; }
     .sem-cal-header { background: #2c3e50; color: white; padding: 10px; text-align: center; font-weight: bold; }
-    .sem-cal-cell { border-right: 1px solid #ddd; border-bottom: 1px solid #ddd; min-height: 100px; padding: 5px; position: relative; }
+    
+    /* 주말 헤더 색상 */
+    .sem-cal-header.sem-sun { background: #e74c3c; } 
+    .sem-cal-header.sem-sat { background: #3498db; } 
+
+    .sem-cal-cell { border-right: 1px solid #ddd; border-bottom: 1px solid #ddd; min-height: 100px; padding: 5px; position: relative; background: #fff; }
     .sem-cal-cell:hover { background-color: #f9f9f9; cursor: pointer; }
+    
+    /* 날짜 숫자 */
+    .sem-date-num { font-weight: bold; font-size: 14px; margin-bottom: 5px; }
+    .sem-sun { color: #e74c3c !important; } 
+    .sem-sat { color: #3498db !important; } 
+
+    /* 예약 바 */
     .sem-res-bar { font-size: 11px; padding: 2px 4px; margin-top: 2px; color: white; border-radius: 3px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .sem-dept-san { background: #3498db; }
     .sem-dept-gyo { background: #e74c3c; }
     .sem-dept-hae { background: #2ecc71; }
     .sem-status-wait { opacity: 0.7; border: 1px dashed #333; }
-    .sem-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; }
-    .sem-modal.active { display: flex; }
-    .sem-modal-content { background: white; padding: 25px; border-radius: 8px; width: 90%; max-width: 500px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-    .sem-input { width: 100%; padding: 8px; margin: 5px 0 15px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-    .sem-loading { position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(0,0,0,0.7); color:white; padding:20px; border-radius:10px; display:none; }
     
-    /* 오류 메시지 스타일 추가 */
+    /* [수정] 모달 스타일 (z-index 대폭 상향) */
+    .sem-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99999 !important; justify-content: center; align-items: center; }
+    .sem-modal.active { display: flex; }
+    
+    /* [수정] 모달 내용 박스 (배경색 확실하게 지정) */
+    .sem-modal-content { background: #fff; padding: 25px; border-radius: 8px; width: 90%; max-width: 500px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); position: relative; z-index: 100000; }
+    
+    .sem-input { width: 100%; padding: 8px; margin: 5px 0 15px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+    .sem-loading { position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(0,0,0,0.7); color:white; padding:20px; border-radius:10px; display:none; z-index: 99999; }
     #error-banner { background: #e74c3c; color: white; padding: 10px; text-align: center; margin-bottom: 10px; display: none; border-radius: 5px; }
+    
+    .facility-select { font-size: 1.2rem; padding: 5px 10px; border: 2px solid #3498db; border-radius: 5px; color: #2c3e50; font-weight: bold; cursor: pointer; }
 </style>
 
 <div id="error-banner"></div>
 
 <div class="sem-nav">
-    <h2 id="page-title"><i class="fas fa-calendar-alt"></i> 실시간 예약 시스템</h2>
+    <div style="display:flex; align-items:center; gap:10px;">
+        <i class="fas fa-building" style="font-size:1.5rem; color:#2c3e50;"></i>
+        <select id="facility-selector" class="facility-select" onchange="app.changeFacility()"></select>
+    </div>
     <div>
         <button class="sem-btn sem-btn-primary" onclick="app.loadData()">🔄 새로고침</button>
         <button class="sem-btn sem-btn-secondary" onclick="app.checkAdminAuth()">🔒 관리자</button>
@@ -50,8 +74,15 @@
 </div>
 
 <div id="admin-view" style="display:none;">
-    <div style="background: #f8f9fa; padding: 15px; margin-bottom: 20px; border-radius: 5px;">
-        <strong>관리자 모드</strong> <button class="sem-btn sem-btn-secondary" onclick="app.logout()" style="float: right;">나가기</button>
+    <div style="background: #f8f9fa; padding: 15px; margin-bottom: 20px; border-radius: 5px; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+            <strong id="admin-title" style="font-size:1.1em;">관리자 모드</strong>
+            <span style="font-size:0.9em; color:#666; margin-left:10px;">대기 중인 예약을 승인하거나 거부하세요.</span>
+        </div>
+        <div>
+            <button class="sem-btn sem-btn-warning" onclick="app.openPwModal()">🔑 비번변경</button>
+            <button class="sem-btn sem-btn-secondary" onclick="app.logout()">나가기</button>
+        </div>
     </div>
     <div id="pending-list"></div>
 </div>
@@ -59,21 +90,18 @@
 <div id="res-modal" class="sem-modal">
     <div class="sem-modal-content">
         <h3 id="modal-title">예약 신청</h3>
+        <p id="modal-facility-name" style="color:#3498db; font-weight:bold; margin-bottom:15px;"></p>
         <form id="res-form" onsubmit="app.saveReservation(event)">
             <input type="hidden" id="res-id">
             <label>날짜</label><input type="date" id="res-date" class="sem-input" required>
-            
             <div style="display: flex; gap: 10px;">
                 <div style="width: 50%;">
-                    <label>시작 시간</label>
-                    <select id="res-start" class="sem-input" required></select>
+                    <label>시작</label><select id="res-start" class="sem-input" required></select>
                 </div>
                 <div style="width: 50%;">
-                    <label>종료 시간</label>
-                    <select id="res-end" class="sem-input" required></select>
+                    <label>종료</label><select id="res-end" class="sem-input" required></select>
                 </div>
             </div>
-
             <label>부서</label>
             <select id="res-dept" class="sem-input" required>
                 <option value="산학처">산학처</option>
@@ -93,10 +121,25 @@
 
 <div id="auth-modal" class="sem-modal">
     <div class="sem-modal-content" style="text-align: center;">
-        <h3>관리자 비밀번호</h3>
-        <input type="password" id="admin-pw" class="sem-input">
+        <h3>관리자 로그인</h3>
+        <p style="font-size:12px; color:#666;">초기 비밀번호: 1234</p>
+        <input type="password" id="admin-pw" class="sem-input" placeholder="비밀번호 입력">
         <button class="sem-btn sem-btn-primary" onclick="app.login()">확인</button>
         <button class="sem-btn sem-btn-secondary" onclick="app.closeModal('auth-modal')">취소</button>
+    </div>
+</div>
+
+<div id="pw-change-modal" class="sem-modal">
+    <div class="sem-modal-content">
+        <h3>관리자 비밀번호 변경</h3>
+        <label>새 비밀번호</label>
+        <input type="password" id="new-pw" class="sem-input" placeholder="새 암호 입력">
+        <label>비밀번호 확인</label>
+        <input type="password" id="new-pw-confirm" class="sem-input" placeholder="새 암호 다시 입력">
+        <div style="text-align: right;">
+            <button class="sem-btn sem-btn-primary" onclick="app.saveNewPassword()">변경 저장</button>
+            <button class="sem-btn sem-btn-secondary" onclick="app.closeModal('pw-change-modal')">취소</button>
+        </div>
     </div>
 </div>
 
@@ -105,26 +148,39 @@
 // 🚨 여기에 본인의 Pantry ID를 꼭 넣으세요! 
 // ==========================================
 const PANTRY_ID = "c3e24190-8ce2-4561-9ec5-6cdfcfbe6c50"; 
-const BASKET_NAME = "reservations";
+const BASKET_NAME = "reservations_final_v2"; // 버전 업그레이드
 const API_URL = `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/${BASKET_NAME}`;
 
-class CloudSeminarSystem {
+const FACILITIES = ["제1세미나실", "제2세미나실", "대강당", "회의실 A"];
+
+class FinalSeminarSystem {
     constructor() {
         this.date = new Date();
         this.reservations = [];
         this.isAdmin = false;
+        this.currentFacility = FACILITIES[0];
+        this.adminPassword = '1234'; 
         
-        // 시간 옵션 초기화
+        this.initFacilities();
         this.initTimeOptions();
-
-        // 🚨 중요: ID가 없어도 일단 달력은 그립니다! (빈 화면 방지)
         this.renderCalendar();
 
         if (PANTRY_ID === "여기에_PANTRY_ID_입력") {
-            this.showError("⚠️ Pantry ID가 설정되지 않았습니다. 예약이 저장되지 않는 '체험 모드'입니다.");
+            this.showError("⚠️ Pantry ID가 설정되지 않았습니다.");
         } else {
             this.loadData();
         }
+    }
+
+    initFacilities() {
+        const selector = document.getElementById('facility-selector');
+        selector.innerHTML = FACILITIES.map(f => `<option value="${f}">${f}</option>`).join('');
+    }
+
+    changeFacility() {
+        this.currentFacility = document.getElementById('facility-selector').value;
+        this.renderCalendar();
+        if(this.isAdmin) this.renderAdminList();
     }
 
     initTimeOptions() {
@@ -147,30 +203,28 @@ class CloudSeminarSystem {
             if (!response.ok) throw new Error('신규 저장소');
             const data = await response.json();
             this.reservations = data.reservations || [];
+            this.adminPassword = data.adminPassword || '1234';
         } catch (e) {
             console.log("데이터 없음 또는 오류:", e);
-            // 오류가 나도 빈 배열로 유지
         }
         document.getElementById('loading-spinner').style.display = 'none';
-        this.renderCalendar(); // 데이터 로드 후 다시 그리기
+        this.renderCalendar();
         if(this.isAdmin) this.renderAdminList();
     }
 
     async saveDataToCloud() {
-        // ID 설정 안 되어있으면 경고만 하고 종료
-        if (PANTRY_ID === "여기에_PANTRY_ID_입력") {
-            alert("Pantry ID를 설정해야 저장이 가능합니다!");
-            return;
-        }
-
+        if (PANTRY_ID === "여기에_PANTRY_ID_입력") { alert("Pantry ID 설정 필요!"); return; }
         document.getElementById('loading-spinner').style.display = 'block';
         try {
             await fetch(API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ reservations: this.reservations })
+                body: JSON.stringify({ 
+                    reservations: this.reservations,
+                    adminPassword: this.adminPassword 
+                })
             });
-            alert("✅ 저장 완료!");
+            alert("✅ 저장되었습니다!");
         } catch (e) {
             alert("❌ 저장 실패: " + e.message);
         }
@@ -183,12 +237,18 @@ class CloudSeminarSystem {
         const grid = document.getElementById('calendar-grid');
         if(!grid) return;
         grid.innerHTML = '';
-        ['일','월','화','수','목','금','토'].forEach(d => grid.innerHTML += `<div class="sem-cal-header">${d}</div>`);
+        
+        const days = ['일','월','화','수','목','금','토'];
+        days.forEach((d, idx) => {
+            let className = 'sem-cal-header';
+            if(idx === 0) className += ' sem-sun'; 
+            if(idx === 6) className += ' sem-sat'; 
+            grid.innerHTML += `<div class="${className}">${d}</div>`;
+        });
         
         const year = this.date.getFullYear();
         const month = this.date.getMonth();
-        const monthDisplay = document.getElementById('current-month-display');
-        if(monthDisplay) monthDisplay.innerText = `${year}년 ${month + 1}월`;
+        document.getElementById('current-month-display').innerText = `${year}년 ${month + 1}월`;
 
         const firstDay = new Date(year, month, 1);
         const lastDay = new Date(year, month + 1, 0);
@@ -196,12 +256,22 @@ class CloudSeminarSystem {
         for(let i=0; i<firstDay.getDay(); i++) grid.innerHTML += `<div class="sem-cal-cell" style="background:#f9f9f9"></div>`;
 
         for(let i=1; i<=lastDay.getDate(); i++) {
+            const currentDate = new Date(year, month, i);
             const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
             const cell = document.createElement('div');
             cell.className = 'sem-cal-cell';
-            cell.innerHTML = `<div style="font-weight:bold; font-size:12px;">${i}</div>`;
             
-            this.reservations.filter(r => r.date === dateStr && r.status !== '취소').forEach(r => {
+            let dateClass = 'sem-date-num';
+            if(currentDate.getDay() === 0) dateClass += ' sem-sun';
+            if(currentDate.getDay() === 6) dateClass += ' sem-sat';
+            
+            cell.innerHTML = `<div class="${dateClass}">${i}</div>`;
+            
+            const myReservations = this.reservations.filter(r => 
+                r.date === dateStr && r.status !== '취소' && r.facility === this.currentFacility
+            );
+
+            myReservations.forEach(r => {
                 const badge = document.createElement('div');
                 badge.className = `sem-res-bar sem-dept-${r.department === '산학처'?'san':r.department==='교학처'?'gyo':'hae'}`;
                 if(r.status === '대기') badge.classList.add('sem-status-wait');
@@ -226,6 +296,7 @@ class CloudSeminarSystem {
         const id = document.getElementById('res-id').value;
         const newData = {
             id: id || Date.now().toString(),
+            facility: this.currentFacility,
             date: document.getElementById('res-date').value,
             startTime: start,
             endTime: end,
@@ -256,13 +327,17 @@ class CloudSeminarSystem {
     }
 
     login() {
-        if(document.getElementById('admin-pw').value === '1234') {
+        const inputPw = document.getElementById('admin-pw').value;
+        if(inputPw === this.adminPassword) {
             this.isAdmin = true;
             this.closeModal('auth-modal');
             document.getElementById('user-view').style.display = 'none';
             document.getElementById('admin-view').style.display = 'block';
+            document.getElementById('admin-title').innerText = `관리자 모드 (${this.currentFacility})`;
             this.renderAdminList();
-        } else alert('비밀번호 오류');
+        } else {
+            alert('비밀번호가 틀렸습니다.');
+        }
     }
 
     logout() {
@@ -272,10 +347,30 @@ class CloudSeminarSystem {
         this.renderCalendar();
     }
 
+    openPwModal() {
+        document.getElementById('new-pw').value = '';
+        document.getElementById('new-pw-confirm').value = '';
+        document.getElementById('pw-change-modal').classList.add('active');
+    }
+
+    async saveNewPassword() {
+        const pw1 = document.getElementById('new-pw').value;
+        const pw2 = document.getElementById('new-pw-confirm').value;
+        
+        if(pw1.length < 4) { alert("비밀번호는 4자리 이상이어야 합니다."); return; }
+        if(pw1 !== pw2) { alert("비밀번호가 일치하지 않습니다."); return; }
+        
+        this.adminPassword = pw1; 
+        this.closeModal('pw-change-modal');
+        await this.saveDataToCloud(); 
+        alert("비밀번호가 변경되었습니다. 다음 로그인부터 적용됩니다.");
+    }
+
     renderAdminList() {
         const list = document.getElementById('pending-list');
-        const pending = this.reservations.filter(r => r.status === '대기');
-        if(pending.length === 0) { list.innerHTML = '<p style="text-align:center; padding:20px;">대기 중인 예약이 없습니다.</p>'; return; }
+        const pending = this.reservations.filter(r => r.status === '대기' && r.facility === this.currentFacility);
+
+        if(pending.length === 0) { list.innerHTML = `<p style="text-align:center; padding:20px;">'${this.currentFacility}'에 대기 중인 예약이 없습니다.</p>`; return; }
         
         list.innerHTML = pending.map(r => `
             <div style="border:1px solid #ddd; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;">
@@ -298,6 +393,7 @@ class CloudSeminarSystem {
 
     openReservationModal(r, dateStr) {
         document.getElementById('res-form').reset();
+        document.getElementById('modal-facility-name').innerText = `📍 예약 시설: ${this.currentFacility}`;
         if(r) {
             document.getElementById('res-id').value = r.id;
             document.getElementById('res-date').value = r.date;
@@ -315,17 +411,15 @@ class CloudSeminarSystem {
         document.getElementById('res-modal').classList.add('active');
     }
     
-    checkAdminAuth() { document.getElementById('auth-modal').classList.add('active'); }
+    checkAdminAuth() { 
+        document.getElementById('admin-pw').value = ''; 
+        document.getElementById('auth-modal').classList.add('active'); 
+    }
     closeModal(id) { document.getElementById(id).classList.remove('active'); }
     moveMonth(offset) { this.date.setMonth(this.date.getMonth() + offset); this.renderCalendar(); }
-    
-    showError(msg) {
-        const banner = document.getElementById('error-banner');
-        banner.innerText = msg;
-        banner.style.display = 'block';
-    }
+    showError(msg) { document.getElementById('error-banner').innerText = msg; document.getElementById('error-banner').style.display = 'block'; }
 }
 
-const app = new CloudSeminarSystem();
+const app = new FinalSeminarSystem();
 </script>
 </div>
