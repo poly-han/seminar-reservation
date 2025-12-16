@@ -11,34 +11,28 @@
     
     .sem-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
     
-    /* [수정] 달력 스타일 (z-index 낮춤) */
     .sem-calendar { display: grid; grid-template-columns: repeat(7, 1fr); border-top: 1px solid #ddd; border-left: 1px solid #ddd; position: relative; z-index: 1; }
     .sem-cal-header { background: #2c3e50; color: white; padding: 10px; text-align: center; font-weight: bold; }
     
-    /* 주말 헤더 색상 */
     .sem-cal-header.sem-sun { background: #e74c3c; } 
     .sem-cal-header.sem-sat { background: #3498db; } 
 
     .sem-cal-cell { border-right: 1px solid #ddd; border-bottom: 1px solid #ddd; min-height: 100px; padding: 5px; position: relative; background: #fff; }
     .sem-cal-cell:hover { background-color: #f9f9f9; cursor: pointer; }
     
-    /* 날짜 숫자 */
     .sem-date-num { font-weight: bold; font-size: 14px; margin-bottom: 5px; }
     .sem-sun { color: #e74c3c !important; } 
     .sem-sat { color: #3498db !important; } 
 
-    /* 예약 바 */
     .sem-res-bar { font-size: 11px; padding: 2px 4px; margin-top: 2px; color: white; border-radius: 3px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .sem-dept-san { background: #3498db; }
     .sem-dept-gyo { background: #e74c3c; }
     .sem-dept-hae { background: #2ecc71; }
     .sem-status-wait { opacity: 0.7; border: 1px dashed #333; }
     
-    /* [수정] 모달 스타일 (z-index 대폭 상향) */
     .sem-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99999 !important; justify-content: center; align-items: center; }
     .sem-modal.active { display: flex; }
     
-    /* [수정] 모달 내용 박스 (배경색 확실하게 지정) */
     .sem-modal-content { background: #fff; padding: 25px; border-radius: 8px; width: 90%; max-width: 500px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); position: relative; z-index: 100000; }
     
     .sem-input { width: 100%; padding: 8px; margin: 5px 0 15px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
@@ -46,6 +40,10 @@
     #error-banner { background: #e74c3c; color: white; padding: 10px; text-align: center; margin-bottom: 10px; display: none; border-radius: 5px; }
     
     .facility-select { font-size: 1.2rem; padding: 5px 10px; border: 2px solid #3498db; border-radius: 5px; color: #2c3e50; font-weight: bold; cursor: pointer; }
+
+    /* 관리자 시설 관리 스타일 */
+    .fac-item { display: flex; gap: 5px; margin-bottom: 5px; padding: 5px; background: #f1f1f1; border-radius: 4px; align-items: center; }
+    .fac-input { padding: 5px; border: 1px solid #ddd; border-radius: 3px; flex-grow: 1; }
 </style>
 
 <div id="error-banner"></div>
@@ -74,17 +72,31 @@
 </div>
 
 <div id="admin-view" style="display:none;">
-    <div style="background: #f8f9fa; padding: 15px; margin-bottom: 20px; border-radius: 5px; display:flex; justify-content:space-between; align-items:center;">
-        <div>
-            <strong id="admin-title" style="font-size:1.1em;">관리자 모드</strong>
-            <span style="font-size:0.9em; color:#666; margin-left:10px;">대기 중인 예약을 승인하거나 거부하세요.</span>
+    <div style="background: #f8f9fa; padding: 15px; margin-bottom: 20px; border-radius: 5px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+            <div>
+                <strong id="admin-title" style="font-size:1.1em;">관리자 모드</strong>
+                <select id="admin-facility-filter" class="sem-input" style="width: auto; display: inline-block; margin: 0 0 0 10px; padding: 4px;" onchange="app.renderAdminList()">
+                </select>
+            </div>
+            <div>
+                <button class="sem-btn sem-btn-warning" onclick="app.openPwModal()">🔑 비번변경</button>
+                <button class="sem-btn sem-btn-secondary" onclick="app.logout()">나가기</button>
+            </div>
         </div>
-        <div>
-            <button class="sem-btn sem-btn-warning" onclick="app.openPwModal()">🔑 비번변경</button>
-            <button class="sem-btn sem-btn-secondary" onclick="app.logout()">나가기</button>
+
+        <h4 style="margin: 10px 0;">⏳ 승인 대기 목록</h4>
+        <div id="pending-list"></div>
+
+        <hr style="margin: 20px 0;">
+        
+        <h4 style="margin: 10px 0;">🏢 시설 이름/목록 관리</h4>
+        <div id="facility-manage-list"></div>
+        <div style="margin-top: 10px; display: flex; gap: 5px;">
+            <input type="text" id="new-fac-name" class="sem-input" placeholder="새 시설 이름" style="margin:0; flex-grow:1;">
+            <button class="sem-btn sem-btn-primary" onclick="app.addFacility()">추가</button>
         </div>
     </div>
-    <div id="pending-list"></div>
 </div>
 
 <div id="res-modal" class="sem-modal">
@@ -122,7 +134,6 @@
 <div id="auth-modal" class="sem-modal">
     <div class="sem-modal-content" style="text-align: center;">
         <h3>관리자 로그인</h3>
-        <p style="font-size:12px; color:#666;">초기 비밀번호: 1234</p>
         <input type="password" id="admin-pw" class="sem-input" placeholder="비밀번호 입력">
         <button class="sem-btn sem-btn-primary" onclick="app.login()">확인</button>
         <button class="sem-btn sem-btn-secondary" onclick="app.closeModal('auth-modal')">취소</button>
@@ -148,39 +159,49 @@
 // 🚨 여기에 본인의 Pantry ID를 꼭 넣으세요! 
 // ==========================================
 const PANTRY_ID = "c3e24190-8ce2-4561-9ec5-6cdfcfbe6c50"; 
-const BASKET_NAME = "reservations_final_v2"; // 버전 업그레이드
+const BASKET_NAME = "reservations_final_v3"; // 버전 v3로 변경 (시설관리 기능 호환을 위해)
 const API_URL = `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/${BASKET_NAME}`;
 
-const FACILITIES = ["제1세미나실", "제2세미나실", "대강당", "회의실 A"];
+// 기본 시설 목록 (데이터 없을 때 사용)
+const DEFAULT_FACILITIES = ["제1세미나실", "제2세미나실", "대강당", "회의실 A"];
 
 class FinalSeminarSystem {
     constructor() {
         this.date = new Date();
         this.reservations = [];
+        this.facilities = [...DEFAULT_FACILITIES]; // 시설 목록을 상태로 관리
         this.isAdmin = false;
-        this.currentFacility = FACILITIES[0];
+        this.currentFacility = this.facilities[0];
         this.adminPassword = '1234'; 
         
-        this.initFacilities();
         this.initTimeOptions();
-        this.renderCalendar();
-
+        
         if (PANTRY_ID === "여기에_PANTRY_ID_입력") {
             this.showError("⚠️ Pantry ID가 설정되지 않았습니다.");
+            this.renderCalendar(); // 에러 상태라도 일단 렌더링
         } else {
             this.loadData();
         }
     }
 
-    initFacilities() {
-        const selector = document.getElementById('facility-selector');
-        selector.innerHTML = FACILITIES.map(f => `<option value="${f}">${f}</option>`).join('');
+    // 시설 선택 드롭다운 렌더링 (사용자용 & 관리자용)
+    initFacilitySelectors() {
+        // 1. 사용자 화면 상단 셀렉터
+        const userSelector = document.getElementById('facility-selector');
+        userSelector.innerHTML = this.facilities.map(f => `<option value="${f}">${f}</option>`).join('');
+        userSelector.value = this.currentFacility;
+
+        // 2. 관리자 화면 필터 셀렉터 (전체보기 추가)
+        const adminSelector = document.getElementById('admin-facility-filter');
+        let adminOptions = `<option value="ALL">📋 전체 시설 보기</option>`;
+        adminOptions += this.facilities.map(f => `<option value="${f}">${f}</option>`).join('');
+        adminSelector.innerHTML = adminOptions;
     }
 
     changeFacility() {
         this.currentFacility = document.getElementById('facility-selector').value;
         this.renderCalendar();
-        if(this.isAdmin) this.renderAdminList();
+        // 관리자 모드일 때는 굳이 리스트를 다시 그리지 않음 (관리자는 별도 필터 사용)
     }
 
     initTimeOptions() {
@@ -202,18 +223,37 @@ class FinalSeminarSystem {
             const response = await fetch(API_URL);
             if (!response.ok) throw new Error('신규 저장소');
             const data = await response.json();
+            
             this.reservations = data.reservations || [];
             this.adminPassword = data.adminPassword || '1234';
+            
+            // 저장된 시설 목록이 있으면 불러오고, 없으면 기본값 사용
+            if (data.facilities && Array.isArray(data.facilities) && data.facilities.length > 0) {
+                this.facilities = data.facilities;
+            } else {
+                this.facilities = [...DEFAULT_FACILITIES];
+            }
+
+            // 현재 시설 유효성 검사 (삭제된 시설을 보고 있을 수 있으므로)
+            if (!this.facilities.includes(this.currentFacility)) {
+                this.currentFacility = this.facilities[0];
+            }
+
         } catch (e) {
-            console.log("데이터 없음 또는 오류:", e);
+            console.log("데이터 없음 또는 초기화:", e);
         }
         document.getElementById('loading-spinner').style.display = 'none';
+        
+        this.initFacilitySelectors(); // 데이터 로드 후 셀렉터 갱신
         this.renderCalendar();
-        if(this.isAdmin) this.renderAdminList();
+        if(this.isAdmin) {
+            this.renderAdminList();
+            this.renderFacilityManager();
+        }
     }
 
     async saveDataToCloud() {
-        if (PANTRY_ID === "여기에_PANTRY_ID_입력") { alert("Pantry ID 설정 필요!"); return; }
+        if (PANTRY_ID === "c3e24190-8ce2-4561-9ec5-6cdfcfbe6c50") { alert("Pantry ID 설정 필요!"); return; }
         document.getElementById('loading-spinner').style.display = 'block';
         try {
             await fetch(API_URL, {
@@ -221,16 +261,22 @@ class FinalSeminarSystem {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     reservations: this.reservations,
-                    adminPassword: this.adminPassword 
+                    adminPassword: this.adminPassword,
+                    facilities: this.facilities // 시설 목록도 함께 저장
                 })
             });
-            alert("✅ 저장되었습니다!");
+            // alert("✅ 저장되었습니다!"); // 너무 빈번하면 귀찮으므로 주석 처리 가능
         } catch (e) {
             alert("❌ 저장 실패: " + e.message);
         }
         document.getElementById('loading-spinner').style.display = 'none';
+        
+        this.initFacilitySelectors(); // 저장 후 셀렉터 상태 동기화
         this.renderCalendar();
-        if(this.isAdmin) this.renderAdminList();
+        if(this.isAdmin) {
+            this.renderAdminList();
+            this.renderFacilityManager();
+        }
     }
 
     renderCalendar() {
@@ -267,8 +313,12 @@ class FinalSeminarSystem {
             
             cell.innerHTML = `<div class="${dateClass}">${i}</div>`;
             
+            // '취소'와 '거절' 상태는 달력에 표시하지 않음
             const myReservations = this.reservations.filter(r => 
-                r.date === dateStr && r.status !== '취소' && r.facility === this.currentFacility
+                r.date === dateStr && 
+                r.status !== '취소' && 
+                r.status !== '거절' &&
+                r.facility === this.currentFacility
             );
 
             myReservations.forEach(r => {
@@ -316,10 +366,11 @@ class FinalSeminarSystem {
         
         this.closeModal('res-modal');
         await this.saveDataToCloud();
+        alert('저장되었습니다.');
     }
 
     async deleteReservation() {
-        if(!confirm('정말 삭제하시겠습니까?')) return;
+        if(!confirm('정말 삭제하시겠습니까? (복구 불가)')) return;
         const id = document.getElementById('res-id').value;
         this.reservations = this.reservations.filter(r => r.id !== id);
         this.closeModal('res-modal');
@@ -333,8 +384,9 @@ class FinalSeminarSystem {
             this.closeModal('auth-modal');
             document.getElementById('user-view').style.display = 'none';
             document.getElementById('admin-view').style.display = 'block';
-            document.getElementById('admin-title').innerText = `관리자 모드 (${this.currentFacility})`;
+            
             this.renderAdminList();
+            this.renderFacilityManager(); // 시설 관리 렌더링
         } else {
             alert('비밀번호가 틀렸습니다.');
         }
@@ -366,18 +418,35 @@ class FinalSeminarSystem {
         alert("비밀번호가 변경되었습니다. 다음 로그인부터 적용됩니다.");
     }
 
+    // 관리자: 대기 목록 렌더링 (전체보기 기능 추가)
     renderAdminList() {
         const list = document.getElementById('pending-list');
-        const pending = this.reservations.filter(r => r.status === '대기' && r.facility === this.currentFacility);
+        const filterVal = document.getElementById('admin-facility-filter').value;
+        
+        // 필터 로직: ALL이면 모든 대기건, 아니면 해당 시설만
+        const pending = this.reservations.filter(r => {
+            const isWait = r.status === '대기';
+            const isTargetFacility = (filterVal === 'ALL') ? true : (r.facility === filterVal);
+            return isWait && isTargetFacility;
+        });
 
-        if(pending.length === 0) { list.innerHTML = `<p style="text-align:center; padding:20px;">'${this.currentFacility}'에 대기 중인 예약이 없습니다.</p>`; return; }
+        if(pending.length === 0) { 
+            const msg = filterVal === 'ALL' ? '대기 중인 예약이 없습니다.' : `'${filterVal}'에 대기 중인 예약이 없습니다.`;
+            list.innerHTML = `<p style="text-align:center; padding:20px; color:#666;">${msg}</p>`; 
+            return; 
+        }
         
         list.innerHTML = pending.map(r => `
-            <div style="border:1px solid #ddd; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;">
-                <div>[${r.department}] ${r.date} ${r.startTime}~${r.endTime} (${r.purpose})</div>
+            <div style="border:1px solid #ddd; background:white; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <span style="font-weight:bold; color:#3498db;">[${r.facility}]</span>
+                    <span style="font-size:0.9em; color:#666;">${r.date} ${r.startTime}~${r.endTime}</span>
+                    <br>
+                    <strong>${r.department}</strong> - ${r.purpose} (${r.contact})
+                </div>
                 <div>
                     <button class="sem-btn sem-btn-success" onclick="app.updateStatus('${r.id}', '확정')">승인</button>
-                    <button class="sem-btn sem-btn-danger" onclick="app.updateStatus('${r.id}', '취소')">거부</button>
+                    <button class="sem-btn sem-btn-danger" onclick="app.updateStatus('${r.id}', '거절')">거부</button>
                 </div>
             </div>
         `).join('');
@@ -388,8 +457,69 @@ class FinalSeminarSystem {
         if(idx >= 0) {
             this.reservations[idx].status = status;
             await this.saveDataToCloud();
+            this.renderAdminList(); // 리스트 갱신
         }
     }
+
+    // ================= 시설 관리 기능 추가 =================
+    renderFacilityManager() {
+        const list = document.getElementById('facility-manage-list');
+        list.innerHTML = this.facilities.map((fac, index) => `
+            <div class="fac-item">
+                <input type="text" class="fac-input" value="${fac}" id="fac-edit-${index}">
+                <button class="sem-btn sem-btn-success" onclick="app.updateFacility(${index})">수정</button>
+                <button class="sem-btn sem-btn-danger" onclick="app.removeFacility(${index})">삭제</button>
+            </div>
+        `).join('');
+    }
+
+    async addFacility() {
+        const newName = document.getElementById('new-fac-name').value.trim();
+        if(!newName) return;
+        if(this.facilities.includes(newName)) { alert('이미 존재하는 시설입니다.'); return; }
+        
+        this.facilities.push(newName);
+        document.getElementById('new-fac-name').value = '';
+        await this.saveDataToCloud();
+    }
+
+    async updateFacility(index) {
+        const oldName = this.facilities[index];
+        const newName = document.getElementById(`fac-edit-${index}`).value.trim();
+        if(!newName) return alert('시설 이름을 입력해주세요.');
+        if(oldName === newName) return;
+
+        if(confirm(`'${oldName}'을(를) '${newName}'(으)로 변경하시겠습니까?\n기존 예약 내역의 시설명도 모두 변경됩니다.`)) {
+            // 1. 시설 목록 업데이트
+            this.facilities[index] = newName;
+            
+            // 2. 기존 예약들의 facility 이름도 일괄 업데이트
+            this.reservations.forEach(r => {
+                if(r.facility === oldName) {
+                    r.facility = newName;
+                }
+            });
+
+            // 3. 현재 보고있는 시설이라면 currentFacility 업데이트
+            if(this.currentFacility === oldName) {
+                this.currentFacility = newName;
+            }
+
+            await this.saveDataToCloud();
+        }
+    }
+
+    async removeFacility(index) {
+        const target = this.facilities[index];
+        if(confirm(`'${target}' 시설을 삭제하시겠습니까?\n이 시설의 기존 예약 데이터는 유지되지만 목록에서는 선택할 수 없게 됩니다.`)) {
+            this.facilities.splice(index, 1);
+            if(this.currentFacility === target) {
+                this.currentFacility = this.facilities[0] || '';
+            }
+            await this.saveDataToCloud();
+        }
+    }
+    // ======================================================
 
     openReservationModal(r, dateStr) {
         document.getElementById('res-form').reset();
