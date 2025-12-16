@@ -253,7 +253,7 @@ class FinalSeminarSystem {
     }
 
     async saveDataToCloud() {
-        if (PANTRY_ID === "c3e24190-8ce2-4561-9ec5-6cdfcfbe6c50") { alert("Pantry ID 설정 필요!"); return; }
+        if (PANTRY_ID === "여기에_PANTRY_ID_입력") { alert("Pantry ID 설정 필요!"); return; }
         document.getElementById('loading-spinner').style.display = 'block';
         try {
             await fetch(API_URL, {
