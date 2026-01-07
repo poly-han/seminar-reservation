@@ -1,143 +1,146 @@
-<div id="seminar-system-container">
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>세미나실 예약 시스템 (Firebase)</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
 <style>
-    /* 기본 스타일 */
-    #seminar-system-container { font-family: 'Noto Sans KR', sans-serif; color: #2c3e50; background: #fff; border: 1px solid #ddd; padding: 20px; max-width: 1200px; margin: 0 auto; }
-    .sem-btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; margin: 2px; }
+    /* 스타일은 기존과 동일 */
+    body { font-family: 'Noto Sans KR', sans-serif; background-color: #f4f6f8; margin: 0; padding: 20px; }
+    #seminar-system-container { color: #2c3e50; background: #fff; border: 1px solid #ddd; padding: 20px; max-width: 1200px; margin: 0 auto; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border-radius: 8px; }
+    
+    .sem-btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; margin: 2px; transition: 0.2s; }
+    .sem-btn:hover { opacity: 0.9; }
     .sem-btn-primary { background: #3498db; color: white; }
     .sem-btn-secondary { background: #95a5a6; color: white; }
     .sem-btn-danger { background: #e74c3c; color: white; }
     .sem-btn-success { background: #2ecc71; color: white; }
     .sem-btn-warning { background: #f39c12; color: white; }
-    .sem-btn-info { background: #8e44ad; color: white; } /* 전체현황 버튼용 */
+    .sem-btn-info { background: #8e44ad; color: white; }
     
     .sem-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
     
-    .sem-calendar { display: grid; grid-template-columns: repeat(7, 1fr); border-top: 1px solid #ddd; border-left: 1px solid #ddd; position: relative; z-index: 1; }
+    .sem-calendar { display: grid; grid-template-columns: repeat(7, 1fr); border-top: 1px solid #ddd; border-left: 1px solid #ddd; }
     .sem-cal-header { background: #2c3e50; color: white; padding: 10px; text-align: center; font-weight: bold; }
-    
     .sem-cal-header.sem-sun { background: #e74c3c; } 
     .sem-cal-header.sem-sat { background: #3498db; } 
 
-    .sem-cal-cell { border-right: 1px solid #ddd; border-bottom: 1px solid #ddd; min-height: 100px; padding: 5px; position: relative; background: #fff; }
-    .sem-cal-cell:hover { background-color: #f9f9f9; cursor: pointer; }
+    .sem-cal-cell { border-right: 1px solid #ddd; border-bottom: 1px solid #ddd; min-height: 120px; padding: 5px; background: #fff; position: relative; }
+    .sem-cal-cell:hover { background-color: #fafafa; }
     
     .sem-date-num { font-weight: bold; font-size: 14px; margin-bottom: 5px; }
     .sem-sun { color: #e74c3c !important; } 
     .sem-sat { color: #3498db !important; } 
 
-    .sem-res-bar { font-size: 11px; padding: 2px 4px; margin-top: 2px; color: white; border-radius: 3px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sem-res-bar { font-size: 11px; padding: 3px 6px; margin-top: 2px; color: white; border-radius: 3px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .sem-dept-san { background: #3498db; }
     .sem-dept-gyo { background: #e74c3c; }
     .sem-dept-hae { background: #2ecc71; }
     
-    /* 상태별 스타일 */
-    .sem-status-wait { opacity: 0.7; border: 1px dashed #333; }
-    .sem-status-reject { background: #95a5a6 !important; text-decoration: line-through; opacity: 0.6; } /* 거절 스타일 */
+    .sem-status-wait { opacity: 0.8; border: 1px dashed #333; background-image: repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(255,255,255,.3) 5px, rgba(255,255,255,.3) 10px); }
+    .sem-status-reject { background: #bdc3c7 !important; text-decoration: line-through; color: #7f8c8d; opacity: 0.7; }
     
-    .sem-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99999 !important; justify-content: center; align-items: center; }
+    .sem-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; }
     .sem-modal.active { display: flex; }
     
-    .sem-modal-content { background: #fff; padding: 25px; border-radius: 8px; width: 90%; max-width: 600px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); position: relative; z-index: 100000; max-height: 80vh; overflow-y: auto; }
+    .sem-modal-content { background: #fff; padding: 25px; border-radius: 8px; width: 90%; max-width: 500px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); position: relative; max-height: 90vh; overflow-y: auto; }
     
     .sem-input { width: 100%; padding: 8px; margin: 5px 0 15px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-    .sem-loading { position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(0,0,0,0.7); color:white; padding:20px; border-radius:10px; display:none; z-index: 99999; }
-    #error-banner { background: #e74c3c; color: white; padding: 10px; text-align: center; margin-bottom: 10px; display: none; border-radius: 5px; }
     
-    .facility-select { font-size: 1.2rem; padding: 5px 10px; border: 2px solid #3498db; border-radius: 5px; color: #2c3e50; font-weight: bold; cursor: pointer; }
+    .facility-select { font-size: 1.1rem; padding: 5px 10px; border: 2px solid #3498db; border-radius: 5px; color: #2c3e50; font-weight: bold; cursor: pointer; }
 
-    /* 관리자 시설 관리 스타일 */
-    .fac-item { display: flex; gap: 5px; margin-bottom: 5px; padding: 5px; background: #f1f1f1; border-radius: 4px; align-items: center; }
-    .fac-input { padding: 5px; border: 1px solid #ddd; border-radius: 3px; flex-grow: 1; }
+    .sem-loading { position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(0,0,0,0.7); color:white; padding:20px; border-radius:10px; display:none; z-index: 99999; }
 
-    /* 관리자 탭 스타일 */
     .admin-tab-group { display: flex; border-bottom: 2px solid #ddd; margin-bottom: 15px; }
     .admin-tab { padding: 10px 20px; cursor: pointer; border: none; background: none; font-weight: bold; color: #7f8c8d; }
     .admin-tab.active { border-bottom: 3px solid #3498db; color: #3498db; }
     .admin-tab:hover { background: #f1f1f1; }
 
-    /* 전체보기 테이블 스타일 */
-    .sem-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    .sem-table th, .sem-table td { border: 1px solid #ddd; padding: 8px; text-align: center; font-size: 0.9rem; }
+    .sem-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+    .sem-table th, .sem-table td { border: 1px solid #ddd; padding: 8px; text-align: center; }
     .sem-table th { background: #f8f9fa; }
+    
+    .fac-item { display: flex; gap: 5px; margin-bottom: 5px; padding: 8px; background: #f8f9fa; border-radius: 4px; align-items: center; }
 </style>
+</head>
+<body>
 
-<div id="error-banner"></div>
+<div id="loading-spinner" class="sem-loading">데이터 동기화 중...</div>
 
-<div class="sem-nav">
-    <div style="display:flex; align-items:center; gap:10px;">
-        <i class="fas fa-building" style="font-size:1.5rem; color:#2c3e50;"></i>
-        <select id="facility-selector" class="facility-select" onchange="app.changeFacility()"></select>
-    </div>
-    <div>
-        <button class="sem-btn sem-btn-primary" onclick="app.loadData()">🔄 새로고침</button>
-        <button class="sem-btn sem-btn-secondary" onclick="app.checkAdminAuth()">🔒 관리자</button>
-    </div>
-</div>
-
-<div id="loading-spinner" class="sem-loading">데이터 불러오는 중...</div>
-
-<div id="user-view">
-    <div style="margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center;">
-        <div>
-            <button class="sem-btn sem-btn-secondary" onclick="app.moveMonth(-1)">&lt;</button>
-            <span id="current-month-display" style="font-size: 1.2rem; font-weight: bold; margin: 0 15px;"></span>
-            <button class="sem-btn sem-btn-secondary" onclick="app.moveMonth(1)">&gt;</button>
+<div id="seminar-system-container">
+    <div class="sem-nav">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <i class="fas fa-database" style="font-size:1.5rem; color:#f39c12;"></i> <select id="facility-selector" class="facility-select" onchange="app.changeFacility()"></select>
         </div>
         <div>
-            <button class="sem-btn sem-btn-info" onclick="app.openAllListModal()">📋 전체 시설 현황</button>
-            <button class="sem-btn sem-btn-primary" onclick="app.openReservationModal()">+ 예약 신청</button>
+            <button class="sem-btn sem-btn-primary" onclick="app.loadData()">🔄 새로고침</button>
+            <button class="sem-btn sem-btn-secondary" onclick="app.checkAdminAuth()">🔒 관리자</button>
         </div>
     </div>
-    <div id="calendar-grid" class="sem-calendar"></div>
-</div>
 
-<div id="admin-view" style="display:none;">
-    <div style="background: #f8f9fa; padding: 15px; margin-bottom: 20px; border-radius: 5px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+    <div id="user-view">
+        <div style="margin-bottom: 15px; display:flex; justify-content:space-between; align-items:center;">
             <div>
-                <strong id="admin-title" style="font-size:1.1em;">관리자 모드</strong>
-                <select id="admin-facility-filter" class="sem-input" style="width: auto; display: inline-block; margin: 0 0 0 10px; padding: 4px;" onchange="app.renderAdminList()">
-                </select>
+                <button class="sem-btn sem-btn-secondary" onclick="app.moveMonth(-1)">&lt;</button>
+                <span id="current-month-display" style="font-size: 1.2rem; font-weight: bold; margin: 0 15px;"></span>
+                <button class="sem-btn sem-btn-secondary" onclick="app.moveMonth(1)">&gt;</button>
             </div>
             <div>
-                <button class="sem-btn sem-btn-warning" onclick="app.openPwModal()">🔑 비번변경</button>
-                <button class="sem-btn sem-btn-secondary" onclick="app.logout()">나가기</button>
+                <button class="sem-btn sem-btn-info" onclick="app.openAllListModal()">📋 전체 현황</button>
+                <button class="sem-btn sem-btn-primary" onclick="app.openReservationModal()">+ 예약 신청</button>
             </div>
         </div>
+        <div id="calendar-grid" class="sem-calendar"></div>
+    </div>
 
-        <div class="admin-tab-group">
-            <button class="admin-tab active" onclick="app.setAdminTab('대기')" id="tab-wait">승인 대기</button>
-            <button class="admin-tab" onclick="app.setAdminTab('확정')" id="tab-confirm">확정 내역</button>
-            <button class="admin-tab" onclick="app.setAdminTab('거절')" id="tab-reject">거절 내역</button>
-        </div>
+    <div id="admin-view" style="display:none;">
+        <div style="background: #f8f9fa; padding: 15px; margin-bottom: 20px; border-radius: 5px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+                <div>
+                    <strong style="font-size:1.1em;">⚙️ 관리자 모드</strong>
+                    <select id="admin-facility-filter" class="sem-input" style="width: auto; display: inline-block; margin: 0 0 0 10px; padding: 4px;" onchange="app.renderAdminList()">
+                    </select>
+                </div>
+                <div>
+                    <button class="sem-btn sem-btn-warning" onclick="app.openPwModal()">🔑 비번변경</button>
+                    <button class="sem-btn sem-btn-secondary" onclick="app.logout()">나가기</button>
+                </div>
+            </div>
 
-        <div id="pending-list"></div>
+            <div class="admin-tab-group">
+                <button class="admin-tab active" onclick="app.setAdminTab('대기')" id="tab-wait">승인 대기</button>
+                <button class="admin-tab" onclick="app.setAdminTab('확정')" id="tab-confirm">확정 내역</button>
+                <button class="admin-tab" onclick="app.setAdminTab('거절')" id="tab-reject">거절 내역</button>
+            </div>
 
-        <hr style="margin: 20px 0;">
-        
-        <h4 style="margin: 10px 0;">🏢 시설 이름/목록 관리</h4>
-        <div id="facility-manage-list"></div>
-        <div style="margin-top: 10px; display: flex; gap: 5px;">
-            <input type="text" id="new-fac-name" class="sem-input" placeholder="새 시설 이름" style="margin:0; flex-grow:1;">
-            <button class="sem-btn sem-btn-primary" onclick="app.addFacility()">추가</button>
+            <div id="pending-list"></div>
+
+            <hr style="margin: 20px 0;">
+            
+            <h4 style="margin: 10px 0;">🏢 시설 목록 관리</h4>
+            <div id="facility-manage-list"></div>
+            <div style="margin-top: 10px; display: flex; gap: 5px;">
+                <input type="text" id="new-fac-name" class="sem-input" placeholder="새 시설 이름" style="margin:0; flex-grow:1;">
+                <button class="sem-btn sem-btn-primary" onclick="app.addFacility()">추가</button>
+            </div>
         </div>
     </div>
 </div>
 
 <div id="res-modal" class="sem-modal">
     <div class="sem-modal-content">
-        <h3 id="modal-title">예약 신청</h3>
+        <h3>예약 신청 / 수정</h3>
         <p id="modal-facility-name" style="color:#3498db; font-weight:bold; margin-bottom:15px;"></p>
         <form id="res-form" onsubmit="app.saveReservation(event)">
             <input type="hidden" id="res-id">
             <label>날짜</label><input type="date" id="res-date" class="sem-input" required>
             <div style="display: flex; gap: 10px;">
-                <div style="width: 50%;">
-                    <label>시작</label><select id="res-start" class="sem-input" required></select>
-                </div>
-                <div style="width: 50%;">
-                    <label>종료</label><select id="res-end" class="sem-input" required></select>
-                </div>
+                <div style="width: 50%;"><label>시작</label><select id="res-start" class="sem-input" required></select></div>
+                <div style="width: 50%;"><label>종료</label><select id="res-end" class="sem-input" required></select></div>
             </div>
             <label>부서</label>
             <select id="res-dept" class="sem-input" required>
@@ -161,17 +164,8 @@
         <h3>📋 전체 시설 예약 현황 (오늘 이후)</h3>
         <div style="overflow-x: auto;">
             <table class="sem-table">
-                <thead>
-                    <tr>
-                        <th>날짜</th>
-                        <th>시설명</th>
-                        <th>시간</th>
-                        <th>부서</th>
-                        <th>상태</th>
-                    </tr>
-                </thead>
-                <tbody id="all-res-tbody">
-                    </tbody>
+                <thead><tr><th>날짜</th><th>시설명</th><th>시간</th><th>부서</th><th>상태</th></tr></thead>
+                <tbody id="all-res-tbody"></tbody>
             </table>
         </div>
         <div style="text-align: center; margin-top: 20px;">
@@ -183,7 +177,7 @@
 <div id="auth-modal" class="sem-modal">
     <div class="sem-modal-content" style="text-align: center;">
         <h3>관리자 로그인</h3>
-        <input type="password" id="admin-pw" class="sem-input" placeholder="비밀번호 입력">
+        <input type="password" id="admin-pw" class="sem-input" placeholder="비밀번호">
         <button class="sem-btn sem-btn-primary" onclick="app.login()">확인</button>
         <button class="sem-btn sem-btn-secondary" onclick="app.closeModal('auth-modal')">취소</button>
     </div>
@@ -192,10 +186,8 @@
 <div id="pw-change-modal" class="sem-modal">
     <div class="sem-modal-content">
         <h3>관리자 비밀번호 변경</h3>
-        <label>새 비밀번호</label>
-        <input type="password" id="new-pw" class="sem-input" placeholder="새 암호 입력">
-        <label>비밀번호 확인</label>
-        <input type="password" id="new-pw-confirm" class="sem-input" placeholder="새 암호 다시 입력">
+        <input type="password" id="new-pw" class="sem-input" placeholder="새 암호">
+        <input type="password" id="new-pw-confirm" class="sem-input" placeholder="새 암호 확인">
         <div style="text-align: right;">
             <button class="sem-btn sem-btn-primary" onclick="app.saveNewPassword()">변경 저장</button>
             <button class="sem-btn sem-btn-secondary" onclick="app.closeModal('pw-change-modal')">취소</button>
@@ -205,49 +197,81 @@
 
 <script>
 // ==========================================
-// 🚨 여기에 본인의 Pantry ID를 꼭 넣으세요! 
+// 🔥 1단계에서 복사한 firebaseConfig를 아래에 덮어씌우세요!
 // ==========================================
-const PANTRY_ID = "c3e24190-8ce2-4561-9ec5-6cdfcfbe6c50"; 
-const BASKET_NAME = "reservations_final_v3"; 
-const API_URL = `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/${BASKET_NAME}`;
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
 
-const DEFAULT_FACILITIES = ["세미나실", "능력개발실", "대회의실", "컴퓨터실(좌)", "컴퓨터실(우)"];
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyB0rnqfpBUhnYlkrmbX2EGPb0rh8mYy9TY",
+  authDomain: "seminar-system-8b871.firebaseapp.com",
+  projectId: "seminar-system-8b871",
+  storageBucket: "seminar-system-8b871.firebasestorage.app",
+  messagingSenderId: "825675457832",
+  appId: "1:825675457832:web:2484166f8d2849f13edc1d",
+  measurementId: "G-PLSQQPM5N5"
+};
 
-class FinalSeminarSystem {
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+
+// Firebase 초기화 (설정값이 없으면 경고창 띄움)
+let db;
+try {
+    if (!firebaseConfig.apiKey) {
+        alert("⚠️ 경고: firebaseConfig가 설정되지 않았습니다. index.html 파일을 열어 1단계에서 복사한 내용을 붙여넣어주세요!");
+    } else {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+    }
+} catch (e) {
+    console.error("Firebase 초기화 오류", e);
+    alert("Firebase 설정에 문제가 있습니다.");
+}
+
+const DEFAULT_FACILITIES = ["제1세미나실", "제2세미나실", "대강당", "회의실 A"];
+
+class FirebaseSeminarSystem {
     constructor() {
         this.date = new Date();
         this.reservations = [];
-        this.facilities = [...DEFAULT_FACILITIES]; 
+        this.facilities = [...DEFAULT_FACILITIES];
         this.isAdmin = false;
         this.currentFacility = this.facilities[0];
         this.adminPassword = '1234'; 
-        
-        this.currentAdminTab = '대기'; // 관리자 모드 현재 탭 (대기, 확정, 거절)
+        this.currentAdminTab = '대기';
 
         this.initTimeOptions();
-        
-        if (PANTRY_ID === "여기에_PANTRY_ID_입력") {
-            this.showError("⚠️ Pantry ID가 설정되지 않았습니다.");
-            this.renderCalendar();
-        } else {
-            this.loadData();
-        }
+        this.loadData(); 
     }
 
     initFacilitySelectors() {
         const userSelector = document.getElementById('facility-selector');
-        userSelector.innerHTML = this.facilities.map(f => `<option value="${f}">${f}</option>`).join('');
-        userSelector.value = this.currentFacility;
+        if(userSelector) {
+            userSelector.innerHTML = this.facilities.map(f => `<option value="${f}">${f}</option>`).join('');
+            userSelector.value = this.currentFacility;
+        }
 
         const adminSelector = document.getElementById('admin-facility-filter');
-        let adminOptions = `<option value="ALL">📋 전체 시설 보기</option>`;
-        adminOptions += this.facilities.map(f => `<option value="${f}">${f}</option>`).join('');
-        adminSelector.innerHTML = adminOptions;
+        if(adminSelector) {
+            let adminOptions = `<option value="ALL">📋 전체 시설 보기</option>`;
+            adminOptions += this.facilities.map(f => `<option value="${f}">${f}</option>`).join('');
+            adminSelector.innerHTML = adminOptions;
+        }
     }
 
     changeFacility() {
-        this.currentFacility = document.getElementById('facility-selector').value;
-        this.renderCalendar();
+        const selector = document.getElementById('facility-selector');
+        if(selector) {
+            this.currentFacility = selector.value;
+            this.renderCalendar();
+        }
     }
 
     initTimeOptions() {
@@ -263,32 +287,34 @@ class FinalSeminarSystem {
         if(endSelect) endSelect.innerHTML = options;
     }
 
+    // 🔥 Firebase에서 데이터 불러오기
     async loadData() {
+        if(!db) return;
         document.getElementById('loading-spinner').style.display = 'block';
         try {
-            const response = await fetch(API_URL);
-            if (!response.ok) throw new Error('신규 저장소');
-            const data = await response.json();
-            
-            this.reservations = data.reservations || [];
-            this.adminPassword = data.adminPassword || '1234';
-            
-            if (data.facilities && Array.isArray(data.facilities) && data.facilities.length > 0) {
-                this.facilities = data.facilities;
+            // 'seminarSystem' 컬렉션의 'mainData' 문서 하나만 사용 (간편설정)
+            const docRef = db.collection('seminarSystem').doc('mainData');
+            const doc = await docRef.get();
+
+            if (doc.exists) {
+                const data = doc.data();
+                this.reservations = data.reservations || [];
+                this.adminPassword = data.adminPassword || '1234';
+                if (data.facilities && data.facilities.length > 0) this.facilities = data.facilities;
             } else {
-                this.facilities = [...DEFAULT_FACILITIES];
+                console.log("데이터가 없어 새로 생성합니다.");
+                // 데이터가 없으면 기본값으로 저장 한번 수행
+                await this.saveData();
             }
-
-            if (!this.facilities.includes(this.currentFacility)) {
-                this.currentFacility = this.facilities[0];
-            }
-
         } catch (e) {
-            console.log("초기화:", e);
+            console.error("불러오기 실패:", e);
+            alert("데이터를 불러오지 못했습니다. (Firebase 설정을 확인하세요)");
         }
-        document.getElementById('loading-spinner').style.display = 'none';
         
-        this.initFacilitySelectors(); 
+        if (!this.facilities.includes(this.currentFacility)) this.currentFacility = this.facilities[0];
+        
+        document.getElementById('loading-spinner').style.display = 'none';
+        this.initFacilitySelectors();
         this.renderCalendar();
         if(this.isAdmin) {
             this.renderAdminList();
@@ -296,25 +322,24 @@ class FinalSeminarSystem {
         }
     }
 
-    async saveDataToCloud() {
-        if (PANTRY_ID === "여기에_PANTRY_ID_입력") { alert("Pantry ID 설정 필요!"); return; }
+    // 🔥 Firebase에 데이터 저장하기
+    async saveData() {
+        if(!db) return;
         document.getElementById('loading-spinner').style.display = 'block';
         try {
-            await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    reservations: this.reservations,
-                    adminPassword: this.adminPassword,
-                    facilities: this.facilities 
-                })
-            });
+            const dataToSave = {
+                reservations: this.reservations,
+                adminPassword: this.adminPassword,
+                facilities: this.facilities
+            };
+            await db.collection('seminarSystem').doc('mainData').set(dataToSave);
         } catch (e) {
-            alert("❌ 저장 실패: " + e.message);
+            console.error("저장 실패:", e);
+            alert("저장에 실패했습니다. (인터넷 연결 또는 권한 확인 필요)");
         }
-        document.getElementById('loading-spinner').style.display = 'none';
         
-        this.initFacilitySelectors(); 
+        document.getElementById('loading-spinner').style.display = 'none';
+        this.initFacilitySelectors();
         this.renderCalendar();
         if(this.isAdmin) {
             this.renderAdminList();
@@ -356,43 +381,31 @@ class FinalSeminarSystem {
             
             cell.innerHTML = `<div class="${dateClass}">${i}</div>`;
             
-            // 변경점: '거절' 상태도 보이도록 수정 (status !== '거절' 조건 제거)
             const myReservations = this.reservations.filter(r => 
-                r.date === dateStr && 
-                r.status !== '취소' && 
-                r.facility === this.currentFacility
+                r.date === dateStr && r.status !== '취소' && r.facility === this.currentFacility
             );
 
             myReservations.forEach(r => {
                 const badge = document.createElement('div');
                 badge.className = `sem-res-bar sem-dept-${r.department === '산학처'?'san':r.department==='교학처'?'gyo':'hae'}`;
-                
-                // 상태별 클래스 추가
                 if(r.status === '대기') badge.classList.add('sem-status-wait');
-                if(r.status === '거절') badge.classList.add('sem-status-reject'); // 거절 스타일 적용
-
+                if(r.status === '거절') badge.classList.add('sem-status-reject');
                 badge.innerText = `[${r.status}] ${r.startTime} ${r.purpose}`;
                 badge.onclick = (e) => { e.stopPropagation(); this.openReservationModal(r); };
                 cell.appendChild(badge);
             });
             
-            cell.onclick = (e) => {
-                if(e.target === cell) this.openReservationModal(null, dateStr);
-            };
+            cell.onclick = (e) => { if(e.target === cell) this.openReservationModal(null, dateStr); };
             grid.appendChild(cell);
         }
     }
 
-    // 전체 예약 현황 모달 열기
     openAllListModal() {
         const tbody = document.getElementById('all-res-tbody');
         tbody.innerHTML = '';
-        
         const todayStr = new Date().toISOString().split('T')[0];
-
-        // 날짜순(최신순) 정렬, 취소된 건 제외
         const sorted = this.reservations
-            .filter(r => r.status !== '취소' && r.date >= todayStr) // 오늘 이후 것만 표시
+            .filter(r => r.status !== '취소' && r.date >= todayStr)
             .sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime));
 
         if(sorted.length === 0) {
@@ -401,13 +414,7 @@ class FinalSeminarSystem {
             sorted.forEach(r => {
                 const row = document.createElement('tr');
                 if(r.status === '거절') row.style.color = '#aaa';
-                row.innerHTML = `
-                    <td>${r.date}</td>
-                    <td>${r.facility}</td>
-                    <td>${r.startTime}~${r.endTime}</td>
-                    <td>${r.department}</td>
-                    <td>${r.status}</td>
-                `;
+                row.innerHTML = `<td>${r.date}</td><td>${r.facility}</td><td>${r.startTime}~${r.endTime}</td><td>${r.department}</td><td>${r.status}</td>`;
                 tbody.appendChild(row);
             });
         }
@@ -418,7 +425,7 @@ class FinalSeminarSystem {
         e.preventDefault();
         const start = document.getElementById('res-start').value;
         const end = document.getElementById('res-end').value;
-        if(start >= end) { alert("종료 시간은 시작 시간보다 늦어야 합니다."); return; }
+        if(start >= end) { alert("종료 시간 오류"); return; }
 
         const id = document.getElementById('res-id').value;
         const newData = {
@@ -435,23 +442,23 @@ class FinalSeminarSystem {
 
         if (id) {
             const idx = this.reservations.findIndex(r => r.id === id);
-            if (idx >= 0) newData.status = this.reservations[idx].status; // 기존 상태 유지
+            if (idx >= 0) newData.status = this.reservations[idx].status;
             this.reservations[idx] = newData;
         } else {
             this.reservations.push(newData);
         }
         
         this.closeModal('res-modal');
-        await this.saveDataToCloud();
+        await this.saveData();
         alert('저장되었습니다.');
     }
 
     async deleteReservation() {
-        if(!confirm('정말 삭제하시겠습니까? (복구 불가)')) return;
+        if(!confirm('정말 삭제하시겠습니까?')) return;
         const id = document.getElementById('res-id').value;
         this.reservations = this.reservations.filter(r => r.id !== id);
         this.closeModal('res-modal');
-        await this.saveDataToCloud();
+        await this.saveData();
     }
 
     login() {
@@ -461,11 +468,10 @@ class FinalSeminarSystem {
             this.closeModal('auth-modal');
             document.getElementById('user-view').style.display = 'none';
             document.getElementById('admin-view').style.display = 'block';
-            
             this.renderAdminList();
             this.renderFacilityManager(); 
         } else {
-            alert('비밀번호가 틀렸습니다.');
+            alert('비밀번호 불일치');
         }
     }
 
@@ -485,33 +491,28 @@ class FinalSeminarSystem {
     async saveNewPassword() {
         const pw1 = document.getElementById('new-pw').value;
         const pw2 = document.getElementById('new-pw-confirm').value;
-        
-        if(pw1.length < 4) { alert("비밀번호는 4자리 이상이어야 합니다."); return; }
-        if(pw1 !== pw2) { alert("비밀번호가 일치하지 않습니다."); return; }
-        
+        if(pw1.length < 4) { alert("4자리 이상 필요"); return; }
+        if(pw1 !== pw2) { alert("비밀번호 불일치"); return; }
         this.adminPassword = pw1; 
         this.closeModal('pw-change-modal');
-        await this.saveDataToCloud(); 
-        alert("비밀번호가 변경되었습니다. 다음 로그인부터 적용됩니다.");
+        await this.saveData(); 
+        alert("변경 완료");
     }
 
-    // 관리자 탭 변경
     setAdminTab(tabName) {
         this.currentAdminTab = tabName;
-        // 탭 UI 활성화 처리
         document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
-        if(tabName === '대기') document.getElementById('tab-wait').classList.add('active');
-        if(tabName === '확정') document.getElementById('tab-confirm').classList.add('active');
-        if(tabName === '거절') document.getElementById('tab-reject').classList.add('active');
-        
+        const btnId = tabName === '대기' ? 'tab-wait' : tabName === '확정' ? 'tab-confirm' : 'tab-reject';
+        const btn = document.getElementById(btnId);
+        if(btn) btn.classList.add('active');
         this.renderAdminList();
     }
 
-    // 관리자 리스트 렌더링 (탭 + 시설필터 적용)
     renderAdminList() {
         const list = document.getElementById('pending-list');
-        const filterFac = document.getElementById('admin-facility-filter').value;
-        const filterStatus = this.currentAdminTab; // 현재 선택된 탭 (대기/확정/거절)
+        const filterFacEl = document.getElementById('admin-facility-filter');
+        const filterFac = filterFacEl ? filterFacEl.value : 'ALL';
+        const filterStatus = this.currentAdminTab;
         
         const filtered = this.reservations.filter(r => {
             const isStatusMatch = r.status === filterStatus;
@@ -519,11 +520,10 @@ class FinalSeminarSystem {
             return isStatusMatch && isFacMatch;
         });
         
-        // 날짜순 정렬
         filtered.sort((a,b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
 
         if(filtered.length === 0) { 
-            list.innerHTML = `<p style="text-align:center; padding:20px; color:#666;">'${filterStatus}' 상태의 예약이 없습니다.</p>`; 
+            list.innerHTML = `<p style="text-align:center; padding:20px; color:#666;">내역이 없습니다.</p>`; 
             return; 
         }
         
@@ -548,17 +548,16 @@ class FinalSeminarSystem {
         const idx = this.reservations.findIndex(r => r.id === id);
         if(idx >= 0) {
             this.reservations[idx].status = status;
-            await this.saveDataToCloud();
+            await this.saveData();
             this.renderAdminList(); 
         }
     }
 
-    // ================= 시설 관리 기능 =================
     renderFacilityManager() {
         const list = document.getElementById('facility-manage-list');
         list.innerHTML = this.facilities.map((fac, index) => `
             <div class="fac-item">
-                <input type="text" class="fac-input" value="${fac}" id="fac-edit-${index}">
+                <input type="text" class="fac-input" value="${fac}" id="fac-edit-${index}" style="margin:0;">
                 <button class="sem-btn sem-btn-success" onclick="app.updateFacility(${index})">수정</button>
                 <button class="sem-btn sem-btn-danger" onclick="app.removeFacility(${index})">삭제</button>
             </div>
@@ -568,41 +567,32 @@ class FinalSeminarSystem {
     async addFacility() {
         const newName = document.getElementById('new-fac-name').value.trim();
         if(!newName) return;
-        if(this.facilities.includes(newName)) { alert('이미 존재하는 시설입니다.'); return; }
-        
+        if(this.facilities.includes(newName)) { alert('중복된 이름'); return; }
         this.facilities.push(newName);
         document.getElementById('new-fac-name').value = '';
-        await this.saveDataToCloud();
+        await this.saveData();
     }
 
     async updateFacility(index) {
         const oldName = this.facilities[index];
         const newName = document.getElementById(`fac-edit-${index}`).value.trim();
-        if(!newName) return alert('시설 이름을 입력해주세요.');
+        if(!newName) return alert('이름 입력 필요');
         if(oldName === newName) return;
 
-        if(confirm(`'${oldName}'을(를) '${newName}'(으)로 변경하시겠습니까?\n기존 예약 내역의 시설명도 모두 변경됩니다.`)) {
+        if(confirm(`'${oldName}' → '${newName}' 변경하시겠습니까?`)) {
             this.facilities[index] = newName;
-            this.reservations.forEach(r => {
-                if(r.facility === oldName) {
-                    r.facility = newName;
-                }
-            });
-            if(this.currentFacility === oldName) {
-                this.currentFacility = newName;
-            }
-            await this.saveDataToCloud();
+            this.reservations.forEach(r => { if(r.facility === oldName) r.facility = newName; });
+            if(this.currentFacility === oldName) this.currentFacility = newName;
+            await this.saveData();
         }
     }
 
     async removeFacility(index) {
         const target = this.facilities[index];
-        if(confirm(`'${target}' 시설을 삭제하시겠습니까?\n이 시설의 기존 예약 데이터는 유지되지만 목록에서는 선택할 수 없게 됩니다.`)) {
+        if(confirm(`'${target}' 삭제하시겠습니까?`)) {
             this.facilities.splice(index, 1);
-            if(this.currentFacility === target) {
-                this.currentFacility = this.facilities[0] || '';
-            }
-            await this.saveDataToCloud();
+            if(this.currentFacility === target) this.currentFacility = this.facilities[0] || '';
+            await this.saveData();
         }
     }
 
@@ -632,9 +622,9 @@ class FinalSeminarSystem {
     }
     closeModal(id) { document.getElementById(id).classList.remove('active'); }
     moveMonth(offset) { this.date.setMonth(this.date.getMonth() + offset); this.renderCalendar(); }
-    showError(msg) { document.getElementById('error-banner').innerText = msg; document.getElementById('error-banner').style.display = 'block'; }
 }
 
-const app = new FinalSeminarSystem();
+const app = new FirebaseSeminarSystem();
 </script>
-</div>
+</body>
+</html>
